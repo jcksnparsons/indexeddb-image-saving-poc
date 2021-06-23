@@ -1,0 +1,24 @@
+<h1>File Uploads</h1>
+<%= form_with do |form| %>
+  <%= form.file_field :file %>
+<% end %>
+<script>
+  const toBase64 = file => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.readAsDataURL(file)
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = e => reject(e)
+    })
+  }
+  
+  const cacheFile = async (file) => {
+    toBase64(file).then(data => {
+        localStorage.setItem(file.name, data)
+    })
+  };
+  
+  document.forms[0].file.addEventListener("change", (e) => {
+    cacheFile(e.target.files[0])
+  })
+</script>
