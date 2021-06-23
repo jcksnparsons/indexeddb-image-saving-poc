@@ -3,22 +3,39 @@
   <%= form.file_field :file %>
 <% end %>
 <script>
-  const toBase64 = file => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.readAsDataURL(file)
-        reader.onload = () => resolve(reader.result)
-        reader.onerror = e => reject(e)
-    })
+
+let db;
+const indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.OIndexedDB || window.msIndexedDB,
+      idbTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction,
+      idbKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange
+
+const createIndexedDb = () => {
+  const DBOpenRequest = window.indexedDB.open('Floorplan', 2);
+  DBOpenRequest.onerror = () => console.log('error')
+  DBOpenRequest.onsuccess = () => {
+      console.log('cache loaded successfully')
+      db = DBOpenRequest.result
   }
+  DBOpenRequest.onupgradeneeded = (e) =>  {
+      db = e.target.result;
+      const store = db.createObjectStore('imgCache', {keyPath: 'file_name'})
+      store.transaction.oncomplete = () => db.transaction('imgCache', 'readwrite').objectStore('imgCache')
+  }
+}
+
+const cacheFile = (file) => {
+    const transaction = db.transaction('imgCache', 'readwrite');
+    transaction.onerror = () => console.log('something weird happened')
+    transaction.oncomplete = () => console.log('transaction completed')
+
+    const objectStore = transaction.objectStore(file.name);
+    const request = objectStore.add(file)
+    request.onsuccess = () => console.log(`Added ${file.name} to cache`)
+}
+
+window.onload = createIndexedDb()
   
-  const cacheFile = async (file) => {
-    toBase64(file).then(data => {
-        localStorage.setItem(file.name, data)
-    })
-  };
-  
-  document.forms[0].file.addEventListener("change", (e) => {
-    cacheFile(e.target.files[0])
-  })
+document.forms[0].file.addEventListener("change", (e) => {
+  cacheFile(e.target.files[0])
+})
 </script>
