@@ -1,7 +1,10 @@
 <h1>File Uploads</h1>
-<%= form_with do |form| %>
+<%= form_with url:"/file-uploads", method: :post, :html => { :onsubmit => "submitPhotos(event)"} do |form| %>
   <%= form.file_field :file %>
+  <br/>
+  <%= form.submit "Upload"%>
 <% end %>
+<br/>
 <button id="deleteCache">Delete Cache</button>
 <script>
   let db;
@@ -26,7 +29,7 @@
   const cacheFile = (file, auditNum) => {
     const data = {
       name: file.name,
-      file: file, 
+      file: file,
       auditNum: auditNum
     }
     console.log(data)
@@ -39,7 +42,12 @@
     return tx.complete
   }
   
+  const clearImagesFromDom = () => {
+    Array.from(document.querySelectorAll('img')).forEach(img => img.remove())
+  }
+  
   const displayImagesFromCache = () => {
+    clearImagesFromDom()
     const tx = db.transaction('imgCache', 'readonly')
     const store = tx.objectStore('imgCache')
     const cursorRequest = store.openCursor()
@@ -52,7 +60,8 @@
           const dataURL = reader.result
           const imgElement = document.createElement('img')
           imgElement.id = imgFile.name
-          imgElement.height, imgElement.width = 400
+          imgElement.height = 400
+          imgElement.width = 400
           imgElement.src = dataURL
           document.body.append(imgElement)
         }
@@ -62,7 +71,7 @@
       }
     }
   }
-
+  
   const clearCache = () => {
     const tx = db.transaction('imgCache', 'readwrite')
     const store = tx.objectStore('imgCache')
@@ -72,11 +81,18 @@
       keys.forEach(key => {
         store.delete(key)
       });
+      clearImagesFromDom()
     }
   }
-  
-  window.onload = createIndexedDb()
 
+  const submitPhotos = (e) => {
+    console.log(e)
+  }
+  
+  window.onload = () => {
+    createIndexedDb()
+  }
+  
   document.querySelector("#deleteCache").addEventListener("click", () => {
     clearCache()
   })
