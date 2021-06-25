@@ -3,39 +3,61 @@
   <%= form.file_field :file %>
 <% end %>
 <script>
-
-let db;
-const indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.OIndexedDB || window.msIndexedDB,
-      idbTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction,
-      idbKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange
-
-const createIndexedDb = () => {
-  const DBOpenRequest = window.indexedDB.open('Floorplan', 2);
-  DBOpenRequest.onerror = () => console.log('error')
-  DBOpenRequest.onsuccess = () => {
-      console.log('cache loaded successfully')
-      db = DBOpenRequest.result
-  }
-  DBOpenRequest.onupgradeneeded = (e) =>  {
-      db = e.target.result;
-      const store = db.createObjectStore('imgCache', {keyPath: 'file_name'})
-      store.transaction.oncomplete = () => db.transaction('imgCache', 'readwrite').objectStore('imgCache')
-  }
-}
-
-const cacheFile = (file) => {
-    const transaction = db.transaction('imgCache', 'readwrite');
-    transaction.onerror = () => console.log('something weird happened')
-    transaction.oncomplete = () => console.log('transaction completed')
-
-    const objectStore = transaction.objectStore(file.name);
-    const request = objectStore.add(file)
-    request.onsuccess = () => console.log(`Added ${file.name} to cache`)
-}
-
-window.onload = createIndexedDb()
+  let db;
+  const indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.OIndexedDB || window.msIndexedDB,
+        idbTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction,
+        idbKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange
   
-document.forms[0].file.addEventListener("change", (e) => {
-  cacheFile(e.target.files[0])
-})
+  const createIndexedDb = () => {
+    const DBOpenRequest = window.indexedDB.open('Floorplan', 2);
+    DBOpenRequest.onerror = () => console.log('error')
+    DBOpenRequest.onsuccess = () => {
+        console.log('cache loaded successfully')
+        db = DBOpenRequest.result
+    }
+    DBOpenRequest.onupgradeneeded = (e) =>  {
+        db = e.target.result;
+        const store = db.createObjectStore('imgCache', {keyPath: 'name'})
+        store.transaction.oncomplete = () => db.transaction('imgCache', 'readwrite').objectStore('imgCache')
+    }
+  }
+  
+  const cacheFile = (file) => {
+    const tx = db.transaction('imgCache', 'readwrite')
+    const store = tx.objectStore('imgCache')
+    tx.onsuccess = () => {console.log('transaction created successfully')}
+    tx.onerror = () => {console.log('transaction creation failed')}
+  
+    store.add(file)
+    return tx.complete
+  }
+  
+  const displayImagesFromCache = () => {
+    const tx = db.transaction('imgCache', 'readonly')
+    const store = tx.objectStore('imgCache')
+    const cursorRequest = store.openCursor()
+    cursorRequest.onsuccess = (e) => {
+      const cursor = e.target.result
+      if (cursor) {
+        const imgFile = cursor.value
+        const reader = new FileReader()
+        reader.onload = () => {
+          const dataURL = reader.result
+          const imgElement = document.createElement('img')
+          imgElement.src = dataURL
+          document.body.append(imgElement)
+        }
+        reader.readAsDataURL(imgFile)
+  
+        cursor.continue()
+      }
+    }
+  }
+  
+  window.onload = createIndexedDb()
+  
+  document.forms[0].file.addEventListener("change", (e) => {
+    cacheFile(e.target.files[0])
+    displayImagesFromCache()
+  })
 </script>
