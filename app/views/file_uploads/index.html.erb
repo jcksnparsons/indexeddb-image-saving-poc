@@ -2,6 +2,7 @@
 <%= form_with do |form| %>
   <%= form.file_field :file %>
 <% end %>
+<button id="deleteCache">Delete Cache</button>
 <script>
   let db;
   const indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.OIndexedDB || window.msIndexedDB,
@@ -22,13 +23,19 @@
     }
   }
   
-  const cacheFile = (file) => {
+  const cacheFile = (file, auditNum) => {
+    const data = {
+      name: file.name,
+      file: file, 
+      auditNum: auditNum
+    }
+    console.log(data)
     const tx = db.transaction('imgCache', 'readwrite')
     const store = tx.objectStore('imgCache')
     tx.onsuccess = () => {console.log('transaction created successfully')}
     tx.onerror = () => {console.log('transaction creation failed')}
   
-    store.add(file)
+    store.add(data)
     return tx.complete
   }
   
@@ -39,11 +46,13 @@
     cursorRequest.onsuccess = (e) => {
       const cursor = e.target.result
       if (cursor) {
-        const imgFile = cursor.value
+        const imgFile = cursor.value.file
         const reader = new FileReader()
         reader.onload = () => {
           const dataURL = reader.result
           const imgElement = document.createElement('img')
+          imgElement.id = imgFile.name
+          imgElement.height, imgElement.width = 400
           imgElement.src = dataURL
           document.body.append(imgElement)
         }
@@ -53,11 +62,27 @@
       }
     }
   }
+
+  const clearCache = () => {
+    const tx = db.transaction('imgCache', 'readwrite')
+    const store = tx.objectStore('imgCache')
+    const keysTx = store.getAllKeys()
+    keysTx.onsuccess = (e) => {
+      const keys = e.target.result
+      keys.forEach(key => {
+        store.delete(key)
+      });
+    }
+  }
   
   window.onload = createIndexedDb()
+
+  document.querySelector("#deleteCache").addEventListener("click", () => {
+    clearCache()
+  })
   
   document.forms[0].file.addEventListener("change", (e) => {
-    cacheFile(e.target.files[0])
+    cacheFile(e.target.files[0], Math.floor(Math.random() * 1000))
     displayImagesFromCache()
   })
 </script>
